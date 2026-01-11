@@ -152,7 +152,7 @@ on:
       rootfs_partsize:
         description: '软件包大小选择'
         required: true
-        default: "512"
+        default: "1024"
         type: choice
         options:
           - '1024'
@@ -216,7 +216,6 @@ jobs:
               -e PROFILE=$profile \
               -e INCLUDE_DOCKER=$include_docker \
               -e ROOTFS_PARTSIZE=$rootfs_partsize \
-              -e ENABLE_SECOND_PARTITION=false \
               immortalwrt/imagebuilder:armsr-armv8-openwrt-${luci_version} /bin/bash /home/build/immortalwrt/build.sh
           done
           
