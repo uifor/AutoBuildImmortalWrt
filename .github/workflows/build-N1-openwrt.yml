@@ -164,6 +164,12 @@ jobs:
           KERNEL_VERSION_NAME: ${{ inputs.kernel_version || '6.1.y_6.6.y' }}
           KERNEL_AUTO_LATEST: ${{ inputs.kernel_version != '' && 'false' || 'true' }}
 
+      - name: Verify packed firmware output (debug check)
+        run: |
+          echo "=== Listing packed firmware output directory ==="
+          ls -la /opt/openwrt_packit/output/ || echo "Directory not found or empty"
+          echo "=== End ==="
+
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
