@@ -38,66 +38,79 @@ jobs:
           cd openwrt
           ./scripts/feeds update -a
 
-      - name: Add custom feeds
+      - name: Add custom feeds (remove dockerman, add luci-app-podman)
         run: |
           cd openwrt
           cat << EOF >> feeds.conf.default
-          src-git dockerman https://github.com/lisaac/luci-app-dockerman.git
           src-git nikki https://github.com/nikkinikki-org/OpenWrt-nikki.git
           src-git lucky https://github.com/gdy666/lucky.git
           src-git openlist https://github.com/OpenListTeam/OpenList-OpenWrt.git
           src-git amlogic https://github.com/ophub/luci-app-amlogic.git
+          src-git podman https://github.com/Zerogiven-OpenWRT-Packages/luci-app-podman.git
           EOF
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Minimal .config (LuCI + required packages + new packages)
+      - name: Generate .config (Podman instead of Dockerman)
         run: |
           cd openwrt
-          cat << EOF > .config
-          CONFIG_TARGET_armvirt=y
-          CONFIG_TARGET_armvirt_64=y
-          CONFIG_TARGET_armvirt_64_Default=y
+          touch .config
 
-          CONFIG_LUCI_SRCDIET=y
-          CONFIG_PACKAGE_luci=y
-          CONFIG_PACKAGE_luci-base=y
-          CONFIG_PACKAGE_luci-light=y
-          CONFIG_PACKAGE_luci-mod-admin-full=y
-          CONFIG_PACKAGE_luci-theme-bootstrap=y
-          CONFIG_PACKAGE_luci-ssl-openssl=y
+          echo "CONFIG_TARGET_armvirt=y" >> .config
+          echo "CONFIG_TARGET_armvirt_64=y" >> .config
+          echo "CONFIG_TARGET_armvirt_64_Default=y" >> .config
+          echo "CONFIG_TARGET_ROOTFS_TARGZ=y" >> .config
+
+          echo "CONFIG_LUCI_SRCDIET=y" >> .config
+          echo "CONFIG_PACKAGE_luci=y" >> .config
+          echo "CONFIG_PACKAGE_luci-base=y" >> .config
+          echo "CONFIG_PACKAGE_luci-light=y" >> .config
+          echo "CONFIG_PACKAGE_luci-mod-admin-full=y" >> .config
+          echo "CONFIG_PACKAGE_luci-theme-bootstrap=y" >> .config
+          echo "CONFIG_PACKAGE_luci-ssl-openssl=y" >> .config
+
+          # Perl 核心模块
+          echo "CONFIG_PACKAGE_perlbase-base=y" >> .config
+          echo "CONFIG_PACKAGE_perlbase-file=y" >> .config
+          echo "CONFIG_PACKAGE_perlbase-time=y" >> .config
+          echo "CONFIG_PACKAGE_perlbase-utf8=y" >> .config
+          echo "CONFIG_PACKAGE_perlbase-xsloader=y" >> .config
 
           # 新增软件包
-          CONFIG_PACKAGE_openssh-sftp-server=y
-          CONFIG_PACKAGE_curl=y
-          CONFIG_PACKAGE_luci-i18n-firewall-zh-cn=y
-          CONFIG_PACKAGE_luci-i18n-opkg-zh-cn=y  # 软件包管理器中文（标准名称为 opkg）
+          echo "CONFIG_PACKAGE_openssh-sftp-server=y" >> .config
+          echo "CONFIG_PACKAGE_curl=y" >> .config
+          echo "CONFIG_PACKAGE_luci-i18n-firewall-zh-cn=y" >> .config
+          echo "CONFIG_PACKAGE_luci-i18n-opkg-zh-cn=y" >> .config
 
-          # 必装应用
-          CONFIG_PACKAGE_luci-app-dockerman=y
-          CONFIG_PACKAGE_dockerd=y
-          CONFIG_PACKAGE_containerd=y
-          CONFIG_PACKAGE_libnetwork=y
-          CONFIG_PACKAGE_cgroupfs-mount=y
+          # Podman（替代 Dockerman，更好支持 nftables）
+          echo "CONFIG_PACKAGE_podman=y" >> .config
+          echo "CONFIG_PACKAGE_luci-app-podman=y" >> .config
 
-          CONFIG_PACKAGE_luci-app-lucky=y
-          CONFIG_PACKAGE_lucky=y
+          # 必装应用（保留其他）
+          echo "CONFIG_PACKAGE_luci-app-lucky=y" >> .config
+          echo "CONFIG_PACKAGE_lucky=y" >> .config
 
-          CONFIG_PACKAGE_luci-app-nikki=y
+          echo "CONFIG_PACKAGE_luci-app-nikki=y" >> .config
 
-          CONFIG_PACKAGE_luci-app-openlist=y
+          echo "CONFIG_PACKAGE_luci-app-openlist=y" >> .config
 
           # 晶晨宝盒
-          CONFIG_PACKAGE_luci-app-amlogic=y
+          echo "CONFIG_PACKAGE_luci-app-amlogic=y" >> .config
 
           # 基础可用性
-          CONFIG_PACKAGE_dropbear=y
-          CONFIG_PACKAGE_openssl-util=y
-          CONFIG_PACKAGE_fdisk=y
-          CONFIG_PACKAGE_parted=y
-          CONFIG_PACKAGE_resize2fs=y
-          EOF
+          echo "CONFIG_PACKAGE_dropbear=y" >> .config
+          echo "CONFIG_PACKAGE_openssl-util=y" >> .config
+          echo "CONFIG_PACKAGE_fdisk=y" >> .config
+          echo "CONFIG_PACKAGE_parted=y" >> .config
+          echo "CONFIG_PACKAGE_resize2fs=y" >> .config
+
           make defconfig
+
+      - name: Verify target configuration
+        run: |
+          echo "=== Current TARGET config ==="
+          grep TARGET openwrt/.config || true
+          echo "=== End ==="
 
       - name: Download sources & compile
         run: |
@@ -109,7 +122,11 @@ jobs:
         id: find_rootfs
         run: |
           ROOTFS=$(ls openwrt/bin/targets/armvirt/64/*rootfs.tar.gz | head -1)
-          if [ -z "$ROOTFS" ]; then echo "Rootfs not found!"; exit 1; fi
+          if [ -z "$ROOTFS" ]; then
+            echo "Rootfs not found! Check if armvirt/64 was built correctly."
+            ls openwrt/bin/targets/ || true
+            exit 1
+          fi
           echo "Found rootfs: $ROOTFS"
           echo "file=$ROOTFS" >> $GITHUB_OUTPUT
 
@@ -150,5 +167,5 @@ jobs:
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Phicomm-N1-Bypass-OpenWrt-${{ inputs.openwrt_version }}${{ inputs.kernel_version != '' && format('-k{0}', inputs.kernel_version) || '-latest-stable' }}
+          name: Phicomm-N1-Bypass-OpenWrt-${{ inputs.openwrt_version }}${{ inputs.kernel_version != '' && format('-k{0}', inputs.kernel_version) || '-latest-stable' }}-podman
           path: /opt/openwrt_packit/output/*.img*
