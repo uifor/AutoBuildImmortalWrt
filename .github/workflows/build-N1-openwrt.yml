@@ -8,7 +8,7 @@ on:
         required: true
         default: openwrt-24.10
       kernel_version:
-        description: '自定义内核版本（如 6.12.65），留空使用最新稳定内核（自动更新 6.1/6.6 系列）'
+        description: '自定义内核版本（如 6.12.65），留空使用最新稳定内核（自动更新 6.1/6.6.y系列）'
         required: false
         default: '6.12.65'
 
@@ -36,9 +36,8 @@ jobs:
         run: |
           git clone https://github.com/openwrt/openwrt.git -b ${{ inputs.openwrt_version }} --depth=1 openwrt
           cd openwrt
-          ./scripts/feeds update -a
 
-      - name: Add custom feeds (remove dockerman, add luci-app-podman)
+      - name: Add custom feeds and update/install all feeds
         run: |
           cd openwrt
           cat << EOF >> feeds.conf.default
@@ -82,7 +81,7 @@ jobs:
           echo "CONFIG_PACKAGE_luci-i18n-firewall-zh-cn=y" >> .config
           echo "CONFIG_PACKAGE_luci-i18n-opkg-zh-cn=y" >> .config
 
-          # Podman（替代 Dockerman，更好支持 nftables）
+          # Podancé (替代 Dockerman，更好支持 nftables)
           echo "CONFIG_PACKAGE_podman=y" >> .config
           echo "CONFIG_PACKAGE_luci-app-podman=y" >> .config
 
