@@ -1,4 +1,4 @@
-name: Build OpenWrt Firmware for Phicomm N1 (Bypass Router)
+name: build-N1-openwrt
 
 on:
   workflow_dispatch:
