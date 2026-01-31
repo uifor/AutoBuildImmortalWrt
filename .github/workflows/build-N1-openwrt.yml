@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       openwrt_version:
-        description: 'OpenWrt 分支或标签（默认 openwrt-24.10）'
+        description: 'OpenWrt 分支或标签（推荐 master 以更好兼容第三方插件，默认 master）'
         required: true
-        default: openwrt-24.10
+        default: master
       kernel_version:
-        description: '自定义内核版本（如 6.12.65），留空使用最新稳定内核（自动更新 6.1/6.6.y系列）'
+        description: '自定义内核版本（如 6.12.65），留空使用最新稳定内核（自动更新 6.1/6.6 系列）'
         required: false
         default: '6.12.65'
 
@@ -37,20 +37,27 @@ jobs:
           git clone https://github.com/openwrt/openwrt.git -b ${{ inputs.openwrt_version }} --depth=1 openwrt
           cd openwrt
 
-      - name: Add custom feeds and update/install all feeds
+      - name: Use GitHub mirrors & add custom feeds (without podman)
         run: |
           cd openwrt
+          # GitHub 镜像，避免 503
+          sed -i 's|git.openwrt.org/feed/packages.git|github.com/openwrt/packages.git|g' feeds.conf.default
+          sed -i 's|git.openwrt.org/project/luci.git|github.com/openwrt/luci.git|g' feeds.conf.default
+          sed -i 's|git.openwrt.org/feed/routing.git|github.com/openwrt/routing.git|g' feeds.conf.default
+          sed -i 's|git.openwrt.org/feed/telephony.git|github.com/openwrt/telephony.git|g' feeds.conf.default
+
+          # 添加第三方 feeds（指定稳定分支）
           cat << EOF >> feeds.conf.default
-          src-git nikki https://github.com/nikkinikki-org/OpenWrt-nikki.git
-          src-git lucky https://github.com/gdy666/lucky.git
-          src-git openlist https://github.com/OpenListTeam/OpenList-OpenWrt.git
-          src-git amlogic https://github.com/ophub/luci-app-amlogic.git
-          src-git podman https://github.com/Zerogiven-OpenWRT-Packages/luci-app-podman.git
+          src-git nikki https://github.com/nikkinikki-org/OpenWrt-nikki.git;main
+          src-git lucky https://github.com/gdy666/lucky.git;master
+          src-git openlist https://github.com/OpenListTeam/OpenList-OpenWrt.git;main
+          src-git amlogic https://github.com/ophub/luci-app-amlogic.git;main
           EOF
+
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Generate .config (Podman instead of Dockerman)
+      - name: Generate .config (retain lucky/nikki/openlist/amlogic)
         run: |
           cd openwrt
           touch .config
@@ -81,11 +88,7 @@ jobs:
           echo "CONFIG_PACKAGE_luci-i18n-firewall-zh-cn=y" >> .config
           echo "CONFIG_PACKAGE_luci-i18n-opkg-zh-cn=y" >> .config
 
-          # Podancé (替代 Dockerman，更好支持 nftables)
-          echo "CONFIG_PACKAGE_podman=y" >> .config
-          echo "CONFIG_PACKAGE_luci-app-podman=y" >> .config
-
-          # 必装应用（保留其他）
+          # 保留的必装应用
           echo "CONFIG_PACKAGE_luci-app-lucky=y" >> .config
           echo "CONFIG_PACKAGE_lucky=y" >> .config
 
@@ -172,5 +175,5 @@ jobs:
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Phicomm-N1-Bypass-OpenWrt-${{ inputs.openwrt_version }}${{ inputs.kernel_version != '' && format('-k{0}', inputs.kernel_version) || '-latest-stable' }}-podman
+          name: Phicomm-N1-Bypass-OpenWrt-${{ inputs.openwrt_version }}${{ inputs.kernel_version != '' && format('-k{0}', inputs.kernel_version) || '-latest-stable' }}
           path: /opt/openwrt_packit/output/*.img*
